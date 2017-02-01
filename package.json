@@ -1,6 +1,6 @@
 {
   "name": "color-bee",
-  "description": "Color palette file generator used by IBM Design",
+  "description": "Generate your color palette into all of the files your team works with.",
   "version": "0.0.3",
   "main": "index.js",
   "scripts": {
