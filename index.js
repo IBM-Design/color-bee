@@ -72,6 +72,11 @@ module.exports = function(options) {
       const aseGroup = {
         name: color
       };
+
+      // Initialize core grade variable that will be used to create
+      // the core grade color object.
+      let coreGrade;
+
       const formArray = obj.values.map(function(colors){
         const hex = function(hex) {
           const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
@@ -88,14 +93,28 @@ module.exports = function(options) {
         }
 
         const formColor = {
-          "name": color + ' ' + colors.grade,
+          "name": `${color} ${colors.grade}`,
           "model": 'RGB',
           "color": hex(colors.value),
           "type": "global"
         };
+
+        // If this current color grade matchest this palette's core grade
+        // the update the color grade variable to this color.
+        if (obj.core === colors.grade) {
+          // Clone formColor object
+          coreGrade = Object.assign({}, formColor);
+
+          // Update color name to have the word core instead of the grade
+          // number
+          coreGrade.name = `${color} core`;
+        }
+
         return formColor;
       });
-      aseGroup.colors = formArray;
+
+      // Add the core grade color value to the beginning of this palette's array
+      aseGroup.colors = [coreGrade, ...formArray];
       return aseGroup;
     });
     aseObj["colors"] = [].concat.apply([], aseObj.colors);

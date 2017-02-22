@@ -34,3 +34,6 @@ bee-palette.clr
 bee-palette.json
 bee-palette.scl
 bee-palette.sketchpalette
+
+# Miscellaneous
+.DS_Store
