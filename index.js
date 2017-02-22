@@ -1,6 +1,7 @@
 const ase = require('ase-utils'),
       clean = require('gulp-clean'),
       fs = require('fs'),
+      path = require('path'),
       gulp = require('gulp'),
       handlebars = require('handlebars'),
       jeditor = require("gulp-json-editor"),
@@ -8,6 +9,7 @@ const ase = require('ase-utils'),
       rename = require('gulp-rename'),
       shell = require('gulp-shell'),
       spy = require('through2-spy');
+
 
 module.exports = function(options) {
   /*--- paths and files  ------------------------------------------------------*/
@@ -18,17 +20,17 @@ module.exports = function(options) {
           : '/node_modules/color-bee';
 
   const config = {
-    templates: `${rootPath}${basePath}/source/templates/*.hbs`,
     output: options.output
       ? `${rootPath}/${options.output}`
       : `${rootPath}/`,
-    partials: `${rootPath}${basePath}/source/templates/partials/*`,
+    partials: `${rootPath}${basePath}/source/templates/partials`,
+    helpers: `${rootPath}${basePath}/source/templates/helpers`,
     source: options.source
       ? `${rootPath}/${options.source}`
       : './source/colors.js',
     templates: rootPath.includes('color-bee')
-      ? './source/templates/*.hbs'
-      : `${rootPath}/node_modules/color-bee/source/templates/*.hbs`,
+      ? './source/templates'
+      : `${rootPath}/node_modules/color-bee/source/templates`,
   };
 
   const colors = require(config.source);
@@ -70,6 +72,11 @@ module.exports = function(options) {
       const aseGroup = {
         name: color
       };
+
+      // Initialize core grade variable that will be used to create
+      // the core grade color object.
+      let coreGrade;
+
       const formArray = obj.values.map(function(colors){
         const hex = function(hex) {
           const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
@@ -86,14 +93,28 @@ module.exports = function(options) {
         }
 
         const formColor = {
-          "name": color + ' ' + colors.grade,
+          "name": `${color} ${colors.grade}`,
           "model": 'RGB',
           "color": hex(colors.value),
           "type": "global"
         };
+
+        // If this current color grade matchest this palette's core grade
+        // the update the color grade variable to this color.
+        if (obj.core === colors.grade) {
+          // Clone formColor object
+          coreGrade = Object.assign({}, formColor);
+
+          // Update color name to have the word core instead of the grade
+          // number
+          coreGrade.name = `${color} core`;
+        }
+
         return formColor;
       });
-      aseGroup.colors = formArray;
+
+      // Add the core grade color value to the beginning of this palette's array
+      aseGroup.colors = [coreGrade, ...formArray];
       return aseGroup;
     });
     aseObj["colors"] = [].concat.apply([], aseObj.colors);
@@ -115,7 +136,7 @@ module.exports = function(options) {
   );
 
   gulp.task('partials', () =>
-    gulp.src(config.partials)
+    gulp.src(`${config.partials}/*`)
       .pipe(spy.obj(chunk =>
         // register each file in the partials folder as a handlebars partial,
         // using its own path name, to be compiled on demand when referenced
@@ -123,7 +144,19 @@ module.exports = function(options) {
       ))
   );
 
-  gulp.task('sketchpalette', [ 'templates' ], function () {
+  gulp.task('helpers', () => {
+    gulp.src(`${config.helpers}/*.js`)
+      .pipe(spy.obj((chunk) => {
+        // remove .js extension name
+        const helperName = chunk.relative.replace(/\.js$/, '');
+
+        // register each file in the helpers folder as a handlebars helper,
+        // using its own file name, to create the helper name.
+        handlebars.registerHelper(helperName, require(path.join(config.helpers, chunk.relative)))
+      }))
+  });
+
+  gulp.task('sketchpalette', ['templates'], function () {
     gulp.src(`${config.output}/${colors.name}.json`)
       .pipe(jeditor(function(json) {
         let sketchPalette = {
@@ -143,8 +176,8 @@ module.exports = function(options) {
       .pipe(gulp.dest(config.output))
   })
 
-  gulp.task('templates', ['partials'], () => {
-    gulp.src(config.templates)
+  gulp.task('templates', ['helpers', 'partials'], () => {
+    gulp.src(`${config.templates}/*.hbs`)
       .pipe(map.obj(chunk => {
         // compile each handlebars file in the templates folder, then evaluate
         // the compiled template with the color definitions as context data,
@@ -163,7 +196,7 @@ module.exports = function(options) {
   });
 
   gulp.task('default', [ 'ase', 'clr', 'eyeglass'], () => {
-    console.log('Color Bee is done buzzing!')
+    console.log('🐝 Color Bee is done buzzing!')
   });
 
   gulp.start('default');
